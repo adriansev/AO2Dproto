@@ -72,8 +72,13 @@ for fc in friend_chain_list:
     # fc.Print("*")  # VALID OUTPUT
     chain.AddFriend(fc)
 
-chain.Print("all")
+#chain.Print("all")
+#chain.Print()
 #chain.Scan("*")
+
+for friend in chain.GetListOfFriends():
+    name = friend.GetName().strip()
+    if name: print(name)
 
 sys.exit()
 
