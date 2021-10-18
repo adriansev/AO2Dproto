@@ -21,6 +21,7 @@ file_list = []
 with fi.input(files=['file_list']) as f:
     for line in f: file_list.extend(line.strip().split())
 
+file_list = [ f for f in file_list if not (f.startswith('#') and f)]
 
 MAIN_TREE = "O2track"
 tree_list = []  # list of all trees find in a DF_ directory
@@ -48,6 +49,8 @@ if MAIN_TREE in tree_list: tree_list.remove(MAIN_TREE)  # remove the tree that w
 
 if _DEBUG: print("\n\n\n")
 
+friend_chain_list = []  # keep a list of chains to be added as friends
+
 # create friends chains
 for t_name in tree_list:
     friend_chain = ROOT.TChain()
@@ -61,7 +64,13 @@ for t_name in tree_list:
             friend_tree_name = f'{f}?query#{tdir.GetName()}/{t_name}'
             if _DEBUG: print(friend_tree_name)
             friend_chain.Add(friend_tree_name)
-    chain.AddFriend(friend_chain)
+    #friend_chain.Print("*")
+    friend_chain_list.append(friend_chain)
+    ##chain.AddFriend(friend_chain)
+
+for fc in friend_chain_list:
+    # fc.Print("*")  # VALID OUTPUT
+    chain.AddFriend(fc)
 
 chain.Print("all")
 #chain.Scan("*")
