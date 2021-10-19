@@ -70,7 +70,8 @@ for t_name in tree_list:
 
 for fc in friend_chain_list:
     # fc.Print("*")  # VALID OUTPUT
-    chain.AddFriend(fc)
+    f_el = chain.AddFriend(fc)
+    f_el.ls()
 
 #chain.Print("all")
 #chain.Print()
