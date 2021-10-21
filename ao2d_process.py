@@ -31,9 +31,12 @@ def get_arg(target: list, item) -> bool:
 exec_name = sys.argv.pop(0)
 _PRINT_DATA_STRUCTURE = get_arg(sys.argv, "showdata")
 SHOW_HELP = (get_arg(sys.argv, "-h") or get_arg(sys.argv, "--h") or get_arg(sys.argv, "-help") or get_arg(sys.argv, "--help"))
+BATCH = (get_arg(sys.argv, "batch") or get_arg(sys.argv, "-b"))
 
 if SHOW_HELP:
-    print(f'{exec_name} showdata : it will print a table with data structure')
+    print('showdata : it will print a table with data structure without continuing to processing\n'
+          '-b | batch : it will not stop at the end for canvas inspection'
+          )
     sys.exit()
 
 
@@ -106,7 +109,7 @@ if _PRINT_DATA_STRUCTURE:
 
     # Print friends already added to the main chain
     print(f'\nMain chain have these friends:\n{[fr.GetName().strip() for fr in chain.GetListOfFriends()]}\n')
-
+    sys.exit()
 
 ###########################################
 ##   DATA CRUNCHING
@@ -137,6 +140,5 @@ c1.SaveAs("pt.png")
 
 
 
-
-input('Please press enter to continue.')
+if not BATCH: input('Please press enter to continue.')
 
