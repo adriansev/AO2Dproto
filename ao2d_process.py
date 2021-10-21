@@ -3,6 +3,8 @@
 import os
 import sys
 from rich.pretty import pprint
+from rich.table import Table
+from rich.console import Console
 import fileinput as fi
 import math
 import time
@@ -10,50 +12,67 @@ import time
 try:
     import ROOT
 except Exception:
-    print("This script requires the python module of ROOT", file=sys.stderr, flush = True)
+    print("This script requires the python module of ROOT", file = sys.stderr, flush = True)
     sys.exit(1)
 
-#ROOT.EnableImplicitMT()
+ROOT.EnableImplicitMT()
 
 _DEBUG = False
+_PRINT_DATA_STRUCTURE = True
+
+def get_arg(target: list, item) -> bool:
+    """Remove inplace all instances of item from list and return True if found"""
+    len_begin = len(target)
+    target[:] = [x for x in target if x != item]
+    len_end = len(target)
+    return len_begin != len_end
+
+
+exec_name = sys.argv.pop(0)
+_PRINT_DATA_STRUCTURE = get_arg(sys.argv, "showdata")
+SHOW_HELP = (get_arg(sys.argv, "-h") or get_arg(sys.argv, "--h") or get_arg(sys.argv, "-help") or get_arg(sys.argv, "--help"))
+
+if SHOW_HELP:
+    print(f'{exec_name} showdata : it will print a table with data structure')
+    sys.exit()
+
 
 file_list = []
 with fi.input(files=['file_list']) as f:
     for line in f: file_list.extend(line.strip().split())
-
 file_list = [ f for f in file_list if not (f.startswith('#') and f)]
+
 
 MAIN_TREE = "O2track"
 tree_list = []  # list of all trees find in a DF_ directory
 
-chain = ROOT.TChain(MAIN_TREE)
+chain = ROOT.TChain(MAIN_TREE)  # main chain to be processed
 
-tree_list_filled = False
+tree_list_filled = False  # fill the list of trees only for first read file/first directory
 for f in file_list:
     try:
         tfile = ROOT.TFile(f)
     except Exception:
         continue
-    for tdir in tfile.GetListOfKeys():  # get the directory(ies)
+    for tdir in tfile.GetListOfKeys():  # for each directory
         if not tdir.IsFolder(): continue
         tree_name = f'{f}?query#{tdir.GetName()}/{MAIN_TREE}'  # https://root.cern.ch/doc/master/classTChain.html#a4d491db32262125e6cb77a8f7a6bfd93
         if _DEBUG: print(tree_name)
         chain.AddFile(tree_name)
 
-        for t in tfile.Get(tdir.GetName()).GetListOfKeys():  # get the name of the other trees from the same TDir
-            if t.GetClassName() != 'TTree': continue
-            if not tree_list_filled: tree_list.append(t.GetName())
-        tree_list_filled = True
+        if not tree_list_filled:
+            for t in tfile.Get(tdir.GetName()).GetListOfKeys():  # get the name of the other trees from the same TDir
+                if t.GetClassName() != 'TTree': continue
+                if not tree_list_filled: tree_list.append(t.GetName())
+            tree_list_filled = True
 
 if MAIN_TREE in tree_list: tree_list.remove(MAIN_TREE)  # remove the tree that we used for the main chain
 
-if _DEBUG: print("\n\n\n")
+chain_list = []  # keep a list of chains to be used
 
-friend_chain_list = []  # keep a list of chains to be added as friends
-
-# create friends chains
+# create chains for the other trees
 for t_name in tree_list:
-    friend_chain = ROOT.TChain()
+    chain_other = ROOT.TChain(t_name)
     for f in file_list:
         try:
             tfile = ROOT.TFile(f)
@@ -61,45 +80,51 @@ for t_name in tree_list:
             continue
         for tdir in tfile.GetListOfKeys():
             if not tdir.IsFolder(): continue
-            friend_tree_name = f'{f}?query#{tdir.GetName()}/{t_name}'
-            if _DEBUG: print(friend_tree_name)
-            friend_chain.Add(friend_tree_name)
-    #friend_chain.Print("*")
-    friend_chain_list.append(friend_chain)
-    ##chain.AddFriend(friend_chain)
+            tree_name = f'{f}?query#{tdir.GetName()}/{t_name}'
+            if _DEBUG: print(tree_name)
+            chain_other.AddFile(tree_name)
+    chain_list.append(chain_other)
 
-for fc in friend_chain_list:
-    # fc.Print("*")  # VALID OUTPUT
-    f_el = chain.AddFriend(fc)
-    f_el.ls()
-
-#chain.Print("all")
-#chain.Print()
-#chain.Scan("*")
-
-for friend in chain.GetListOfFriends():
-    name = friend.GetName().strip()
-    if name: print(name)
-
-sys.exit()
-
-df = ROOT.RDataFrame(chain);
-
-##https://github.com/AliceO2Group/AliceO2/blob/dev/Common/MathUtils/include/MathUtils/Utils.h
-##https://github.com/AliceO2Group/AliceO2/blob/dev/Framework/Core/include/Framework/AnalysisDataModel.h#L115
-def get_pt(x): return fabs(1./float(x) )
-
-#filter_data = df.Define("pt", "abs(1./fSigned1Pt)")
-
-h_pt = df.Histo1D("fSigned1Pt") ## , "Title pt;p_{T};Tracks", 200, 0, 200)
+## add friends to the main chain; the list is manual
+friends_names_list = ['O2mctracklabel', 'O2trackcov', 'O2trackextra' ]
+#for frd in friends_names_list:
+#    for ch in chain_list:
+#        if ch.GetName() == frd: chain.AddFriend(ch)
 
 
-c1 = ROOT.TCanvas("c1", "c1", 600, 600)
+if _PRINT_DATA_STRUCTURE:
+    table = Table(title = None)
+    table.add_column("Chain/Tree name", justify="left")
+    table.add_column("Entries", justify="right")
+    table.add_column("Branches", justify="left")
 
+    table.add_row(f'{chain.GetName()}',f'{chain.GetEntries()}', ' '.join( [br.GetName() for br in chain.GetListOfBranches()] ))
+    [table.add_row(f'{ch.GetName()}',f'{ch.GetEntries()}', ' '.join( [br.GetName() for br in ch.GetListOfBranches()] )) for ch in chain_list]
+
+    console = Console()
+    console.print(table)
+
+    # Print friends already added to the main chain
+    print(f'\nMain chain have these friends:\n{[fr.GetName().strip() for fr in chain.GetListOfFriends()]}\n')
+
+
+###########################################
+##   DATA CRUNCHING
+###########################################
+
+ROOT.gROOT.LoadMacro('alice_DataModel.C+')  # compiled form of data definitions
+
+df = ROOT.RDataFrame(chain)
+
+pt_node = df.Define('pt', 'alice_o2::define_pt(fSigned1Pt)')
+
+h_pt = pt_node.Histo1D(("pt", "p_{T};p_{T};n_{Tracks}", 150, 0, 150), 'pt')
+
+c1 = ROOT.TCanvas("c1", "c1", 1500, 1000)
+c1.cd()
+c1.SetLogy()
 h_pt.Draw()
-
-time.sleep(30)
-
+c1.SaveAs("pt.png")
 
 
 
@@ -112,4 +137,6 @@ time.sleep(30)
 
 
 
+
+input('Please press enter to continue.')
 
