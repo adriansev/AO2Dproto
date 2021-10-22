@@ -17,7 +17,7 @@ except Exception:
 
 ROOT.EnableImplicitMT()
 
-_DEBUG = False
+_DEBUG = True
 _PRINT_DATA_STRUCTURE = True
 ADD_FRIENDS = False
 
@@ -60,9 +60,11 @@ for f in file_list:
         continue
     for tdir in tfile.GetListOfKeys():  # for each directory
         if not tdir.IsFolder(): continue
-        tree_name = f'{f}?query#{tdir.GetName()}/{MAIN_TREE}'  # https://root.cern.ch/doc/master/classTChain.html#a4d491db32262125e6cb77a8f7a6bfd93
-        if _DEBUG: print(tree_name)
-        chain.AddFile(tree_name)
+        tree_name = f'{f}?#{tdir.GetName()}/{MAIN_TREE}'  # https://root.cern.ch/doc/master/classTChain.html#a4d491db32262125e6cb77a8f7a6bfd93
+        # print(tree_name)
+        rez = chain.AddFile(tree_name, -1)
+        if rez != 1:
+            print(f'Invalid file: {tree_name}')
 
         if not tree_list_filled:
             for t in tfile.Get(tdir.GetName()).GetListOfKeys():  # get the name of the other trees from the same TDir
@@ -85,9 +87,9 @@ for t_name in tree_list:
             continue
         for tdir in tfile.GetListOfKeys():
             if not tdir.IsFolder(): continue
-            tree_name = f'{f}?query#{tdir.GetName()}/{t_name}'
-            if _DEBUG: print(tree_name)
-            rez = chain_other.AddFile(tree_name)
+            tree_name = f'{f}?#{tdir.GetName()}/{t_name}'
+            #print(tree_name)
+            rez = chain_other.AddFile(tree_name, -1)
             if rez != 1:
                 failed_file = True
                 print(f'Could not add {tree_name} to chain')
