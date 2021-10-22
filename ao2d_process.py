@@ -19,6 +19,7 @@ ROOT.EnableImplicitMT()
 
 _DEBUG = False
 _PRINT_DATA_STRUCTURE = True
+ADD_FRIENDS = False
 
 def get_arg(target: list, item) -> bool:
     """Remove inplace all instances of item from list and return True if found"""
@@ -76,6 +77,7 @@ chain_list = []  # keep a list of chains to be used
 # create chains for the other trees
 for t_name in tree_list:
     chain_other = ROOT.TChain(t_name)
+    failed_file = False  # if any file failed, it does not make sense to add the chain as a friend
     for f in file_list:
         try:
             tfile = ROOT.TFile(f)
@@ -85,15 +87,23 @@ for t_name in tree_list:
             if not tdir.IsFolder(): continue
             tree_name = f'{f}?query#{tdir.GetName()}/{t_name}'
             if _DEBUG: print(tree_name)
-            chain_other.AddFile(tree_name)
-    chain_list.append(chain_other)
+            rez = chain_other.AddFile(tree_name)
+            if rez != 1:
+                failed_file = True
+                print(f'Could not add {tree_name} to chain')
+    if not failed_file: chain_list.append(chain_other)
 
 ## add friends to the main chain; the list is manual
 friends_names_list = ['O2mctracklabel', 'O2trackcov', 'O2trackextra' ]
-#for frd in friends_names_list:
-#    for ch in chain_list:
-#        if ch.GetName() == frd: chain.AddFriend(ch)
 
+if ADD_FRIENDS:
+    for frd in friends_names_list:
+        for ch in chain_list:
+            if ch.GetName() == frd:
+                if chain.GetEntries() == ch.GetEntries():
+                    chain.AddFriend(ch)
+                else:
+                    print(f'Different number of entries for: {frd} ; Not adding')
 
 if _PRINT_DATA_STRUCTURE:
     table = Table(title = None)
