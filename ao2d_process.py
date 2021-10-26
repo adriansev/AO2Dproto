@@ -54,9 +54,9 @@ chain = ROOT.TChain(MAIN_TREE)  # main chain to be processed
 
 tree_list_filled = False  # fill the list of trees only for first read file/first directory
 for f in file_list:
-    try:
-        tfile = ROOT.TFile(f)
-    except Exception:
+    tfile = ROOT.TFile(f)
+    if tfile.IsZombie():
+        print(f'{f} is zombie')
         continue
     for tdir in tfile.GetListOfKeys():  # for each directory
         if not tdir.IsFolder(): continue
@@ -81,9 +81,9 @@ for t_name in tree_list:
     chain_other = ROOT.TChain(t_name)
     failed_file = False  # if any file failed, it does not make sense to add the chain as a friend
     for f in file_list:
-        try:
-            tfile = ROOT.TFile(f)
-        except Exception:
+        tfile = ROOT.TFile(f)
+        if tfile.IsZombie():
+            print(f'{f} is zombie')
             continue
         for tdir in tfile.GetListOfKeys():
             if not tdir.IsFolder(): continue
