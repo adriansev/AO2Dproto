@@ -11,6 +11,7 @@ import math
 import time
 from array import array
 import numpy as np
+import numpy_indexed as npi
 
 
 try:
@@ -24,7 +25,7 @@ ROOT.EnableImplicitMT()
 
 _DEBUG = True
 _PRINT_DATA_STRUCTURE = True
-ADD_FRIENDS = True
+ADD_FRIENDS = False
 
 def get_arg(target: list, item) -> bool:
     """Remove inplace all instances of item from list and return True if found"""
@@ -151,13 +152,14 @@ for f in file_list:
         # for entry_idx, e in enumerate(tree_track):
             # dict_add2key(entries2col, getattr(e, 'fIndexCollisions'), entry_idx)
 
-
         # Get numpy array and according labels of the columns
         rdf_tracks = ROOT.RDataFrame(tree_track)
-        # we can do global filter here for tracks: sign, p_{T,x,y,z}
+        # we can do global filter here for tracks: sign, p_{T,x,y,z} before conversion to numpy
         npy_tracks = rdf_tracks.AsNumpy()
+        np.set_printoptions(threshold=np.inf)
+        #print(type(npy_tracks))
 
-
+        npy_conc = np.concatenate((npy_tracks.values()), axis = 0)
 
         #pt_node = df.Define('pt', 'alice_o2::define_pt(fSigned1Pt)')
         #h_pt = pt_node.Histo1D(("pt", "p_{T};p_{T};n_{Tracks}", 150, 0, 150), 'pt')
