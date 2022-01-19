@@ -1,0 +1,1 @@
+root.exe -q -x -e 'gROOT->LoadMacro("alice_DataModel.C+")'
