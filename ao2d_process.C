@@ -9,6 +9,7 @@
 
 #include <TFile.h>
 #include <TKey.h>
+#include <TTree.h>
 
 using std::cout;
 using std::endl;
@@ -25,7 +26,12 @@ std::vector<std::string> get_df_trees (TFile& f, const std::string& df_name);
 //###############################################
 int ao2d_process (/*int argc, char* argv[]*/) {
 // vector<string> args(argv + 1, argv + argc);    // put all args in a vector // TODO process args
-    
+
+vector<string> friends_names_list;  // most general friends of O2track
+friends_names_list.push_back("O2mctracklabel");
+friends_names_list.push_back("O2trackcov");
+friends_names_list.push_back("O2trackextra");
+
 string input_file = "file_list";    
 vector<string> input_file_list = parse_file(input_file);
     
@@ -36,23 +42,17 @@ for (auto f: input_file_list) {  // parsing files in list
     vector<string> df_list = get_df_list(tfile);
     for (auto d: df_list) {  // parsing df_ directories in tfile
         vector<string> tree_list = get_df_trees(tfile, d);
-        for (auto t_name: tree_list) {cout << t_name << endl;}
-        cout<<endl;
+        string ttree_path = d + string("/") + string("O2track");
+        TTree* tracks = dynamic_cast<TTree*>(tfile.Get(ttree_path.c_str()));
+        tracks->Print();
+
+
+
+
+
         }
 
-
-
-
-
-
-
     }
-    
-    
-    
-    
-    
-    
     
 return 0;
 }
@@ -81,11 +81,6 @@ std::vector<std::string> get_df_trees (TFile& f, const std::string& df_name) {
         }
     return list;
     }
-
-
-
-
-
 
 //##############################################
 bool str_is_space (const std::string& input) {
