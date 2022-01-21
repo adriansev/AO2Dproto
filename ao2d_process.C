@@ -1,20 +1,27 @@
 //usr/bin/env -S root.exe -b -q -l -e ".x ${0}" ; exit $?
 #include <algorithm>
 #include <string>
+#include <unordered_map>
 #include <iostream>
 #include <sstream>
 #include <fstream>
 #include <vector>
 #include <cctype>
 
+#include <TROOT.h>
 #include <TFile.h>
 #include <TKey.h>
 #include <TTree.h>
+
+#include "alice_DataModel.C"
 
 using std::cout;
 using std::endl;
 using std::string;
 using std::vector;
+
+typedef std::vector<long long> VecInt;
+typedef std::unordered_map<int, VecInt> CollEv;
 
 bool str_is_space (const std::string& input);
 std::vector<std::string> str_split(const std::string& input, char delimiter);
@@ -32,6 +39,8 @@ friends_names_list.push_back("O2mctracklabel");
 friends_names_list.push_back("O2trackcov");
 friends_names_list.push_back("O2trackextra");
 
+gROOT->LoadMacro("alice_DataModel.C+");
+
 string input_file = "file_list";    
 vector<string> input_file_list = parse_file(input_file);
     
@@ -42,17 +51,51 @@ for (auto f: input_file_list) {  // parsing files in list
     vector<string> df_list = get_df_list(tfile);
     for (auto d: df_list) {  // parsing df_ directories in tfile
         vector<string> tree_list = get_df_trees(tfile, d);
-        string ttree_path = d + string("/") + string("O2track");
-        TTree* tracks = dynamic_cast<TTree*>(tfile.Get(ttree_path.c_str()));
-        tracks->Print();
+        string ttree_path_track = d + string("/") + string("O2track");
+        TTree* tracks = dynamic_cast<TTree*>(tfile.Get(ttree_path_track.c_str()));
+
+        // just for grouping of tracks in collisions events
+        CollEv coll_list;  // list of index collision groups
+        tracks->SetBranchStatus("*",0);
+        tracks->SetBranchStatus("fIndexCollisions",1);
+        Int_t fIndexCollisions;
+        tracks->SetBranchAddress("fIndexCollisions",&fIndexCollisions);
+        for (Long64_t i = 0; i < tracks->GetEntries(); ++i) {
+            tracks->GetEntry(i);
+            coll_list[fIndexCollisions].push_back(i);
+            }
+
+        //######################
+        // Now we can start to parse collisions
+        //######################
+        tracks->SetBranchStatus("*",1); // enable all branches in O2track
+        UChar_t fTrackType;
+        Float_t fX, fY, fZ, fAlpha, fSnp, fTgl, fSigned1Pt;
+        tracks->SetBranchAddress("fTrackType",&fTrackType); 
+        tracks->SetBranchAddress("fX",&fX); 
+        tracks->SetBranchAddress("fY",&fY); 
+        tracks->SetBranchAddress("fZ",&fZ); 
+        tracks->SetBranchAddress("fAlpha",&fAlpha); 
+        tracks->SetBranchAddress("fSnp",&fSnp); 
+        tracks->SetBranchAddress("fTgl",&fTgl); 
+        tracks->SetBranchAddress("fSigned1Pt",&fSigned1Pt); 
+        for (auto i: coll_list) {  // lets parse collisions
+            std::cout << "fIndexCollisions:[" << i.first << "] | Tracks in collision:[" << i.second.size() << "]" << '\n';
+
+            Float_t pt_sum = 0;
+            for (long long ent: i.second) {
+                tracks->GetEntry(ent);
+                cout << "fSigned1Pt: " << fSigned1Pt << endl;
+//                 pt_sum += o2alice::pt(fSigned1Pt);
+                }
+//             std::cout << "p_{T} sum in collision >" << i.first << "< is = " << pt_sum << std::endl;
 
 
 
 
-
-        }
-
-    }
+            }  // end of loop over collisions
+        }  // end of loop over DF_ directories
+    }  // end of loop over file_list
     
 return 0;
 }
