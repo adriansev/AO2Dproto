@@ -7,12 +7,14 @@
 #include <fstream>
 #include <vector>
 #include <cctype>
+#include <cmath>
 
 #include <TROOT.h>
 #include <TFile.h>
 #include <TKey.h>
 #include <TTree.h>
 
+#include "o2data_model/DataTypes.h"
 #include "alice_DataModel.C"
 
 using std::cout;
@@ -28,6 +30,7 @@ std::vector<std::string> str_split(const std::string& input, char delimiter);
 std::vector<std::string> parse_file (std::string file);
 std::vector<std::string> get_df_list (const TFile& f);
 std::vector<std::string> get_df_trees (TFile& f, const std::string& df_name);
+TTree* GetTree(TFile& tfile, std::string directory, std::string tree_name);
 
 
 //###############################################
@@ -41,9 +44,9 @@ friends_names_list.push_back("O2trackextra");
 
 gROOT->LoadMacro("alice_DataModel.C+");
 
-string input_file = "file_list";    
+string input_file = "file_list";
 vector<string> input_file_list = parse_file(input_file);
-    
+
 for (auto f: input_file_list) {  // parsing files in list
     TFile tfile(f.c_str());
     if (tfile.IsZombie()) { continue; }
@@ -51,9 +54,16 @@ for (auto f: input_file_list) {  // parsing files in list
     vector<string> df_list = get_df_list(tfile);
     for (auto d: df_list) {  // parsing df_ directories in tfile
         vector<string> tree_list = get_df_trees(tfile, d);
-        string ttree_path_track = d + string("/") + string("O2track");
-        TTree* tracks = dynamic_cast<TTree*>(tfile.Get(ttree_path_track.c_str()));
+        TTree* tracks = GetTree(tfile, d, "O2track");
+                
+        // string ttree_path_trackextra = d + string("/") + string("O2trackextra");
+        // tracks->AddFriend(ttree_path_trackextra.c_str());
+        
+        // string ttree_path_trackcov = d + string("/") + string("O2trackcov");
+        // tracks->AddFriend(ttree_path_trackcov.c_str());
 
+        // for (const auto&& obj: *tracks->GetListOfFriends()) { cout << "Friend name : " << obj->GetName() << endl; }
+        
         // just for grouping of tracks in collisions events
         CollEv coll_list;  // list of index collision groups
         tracks->SetBranchStatus("*",0);
@@ -80,24 +90,45 @@ for (auto f: input_file_list) {  // parsing files in list
         tracks->SetBranchAddress("fTgl",&fTgl); 
         tracks->SetBranchAddress("fSigned1Pt",&fSigned1Pt); 
         for (auto i: coll_list) {  // lets parse collisions
-            std::cout << "fIndexCollisions:[" << i.first << "] | Tracks in collision:[" << i.second.size() << "]" << '\n';
-
+            std::cout << "fIndexCollisions:[" << i.first << "]" << '\n';
             Float_t pt_sum = 0;
+            Int_t tracks_nr = 0;
             for (long long ent: i.second) {
                 tracks->GetEntry(ent);
-                cout << "fSigned1Pt: " << fSigned1Pt << endl;
-//                 pt_sum += o2alice::pt(fSigned1Pt);
+                int track_type = static_cast<int>(fTrackType);
+                if ( !((track_type == o2::aod::track::Track) || (track_type == o2::aod::track::Run2Track)) ) { continue; };  // if not Track or Run2Track then skip
+                    
+                tracks_nr++;
+                pt_sum += o2alice::pt(fSigned1Pt);
+                // std::cout << "fTrackType --> " << track_type << " | fSigned1Pt: " << fSigned1Pt << endl;
+                
+                }  // end of loop over tracks in collision
+
+            if (tracks_nr == 0) {
+                cout << "No tracks in this collision" << endl;
+                continue;
                 }
-//             std::cout << "p_{T} sum in collision >" << i.first << "< is = " << pt_sum << std::endl;
-
-
-
-
+                
+            Float_t pt_sum_avrg = pt_sum/tracks_nr ;
+            if (isnan(pt_sum_avrg)) {
+                cout << "ptsum = " << pt_sum << " ; tracks_nr =  " << tracks_nr << endl;
+                }
+            else {
+                std::cout << "<p_{T}> sum in collision >" << i.first << "< is = " << pt_sum_avrg << std::endl;
+                }
+            
             }  // end of loop over collisions
         }  // end of loop over DF_ directories
     }  // end of loop over file_list
-    
+
 return 0;
+}
+
+//##############################################
+TTree* GetTree(TFile& tfile, std::string directory, std::string tree_name) {
+    string ttree_path_track = directory + string("/") + tree_name;
+    TTree* ttree = dynamic_cast<TTree*>(tfile.Get(ttree_path_track.c_str()));
+    return ttree;
 }
 
 //##############################################
