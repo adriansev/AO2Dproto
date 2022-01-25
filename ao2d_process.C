@@ -8,11 +8,13 @@
 #include <vector>
 #include <cctype>
 #include <cmath>
+#include <string_view>
 
 #include <TROOT.h>
 #include <TFile.h>
 #include <TKey.h>
 #include <TTree.h>
+#include <ROOT/StringUtils.hxx>
 
 #include "o2data_model/DataTypes.h"
 #include "alice_DataModel.C"
@@ -24,6 +26,7 @@ using std::vector;
 
 typedef std::vector<long long> VecInt;
 typedef std::unordered_map<int, VecInt> CollEv;
+typedef std::unordered_map<std::string, TTree*> TTreeCol;
 
 bool str_is_space (const std::string& input);
 std::vector<std::string> str_split(const std::string& input, char delimiter);
@@ -36,13 +39,7 @@ TTree* GetTree(TFile& tfile, std::string directory, std::string tree_name);
 //###############################################
 int ao2d_process (/*int argc, char* argv[]*/) {
 // vector<string> args(argv + 1, argv + argc);    // put all args in a vector // TODO process args
-
-vector<string> friends_names_list;  // most general friends of O2track
-friends_names_list.push_back("O2mctracklabel");
-friends_names_list.push_back("O2trackcov");
-friends_names_list.push_back("O2trackextra");
-
-gROOT->LoadMacro("alice_DataModel.C+");
+// gROOT->LoadMacro("alice_DataModel.C+");
 
 string input_file = "file_list";
 vector<string> input_file_list = parse_file(input_file);
@@ -50,19 +47,18 @@ vector<string> input_file_list = parse_file(input_file);
 for (auto f: input_file_list) {  // parsing files in list
     TFile tfile(f.c_str());
     if (tfile.IsZombie()) { continue; }
-
+    
     vector<string> df_list = get_df_list(tfile);
     for (auto d: df_list) {  // parsing df_ directories in tfile
         vector<string> tree_list = get_df_trees(tfile, d);
-        TTree* tracks = GetTree(tfile, d, "O2track");
-                
-        // string ttree_path_trackextra = d + string("/") + string("O2trackextra");
-        // tracks->AddFriend(ttree_path_trackextra.c_str());
-        
-        // string ttree_path_trackcov = d + string("/") + string("O2trackcov");
-        // tracks->AddFriend(ttree_path_trackcov.c_str());
+        TTreeCol tree_map;
+        for (auto t: tree_list){ tree_map[t] = GetTree(tfile, d, t); }
 
-        // for (const auto&& obj: *tracks->GetListOfFriends()) { cout << "Friend name : " << obj->GetName() << endl; }
+        TTree* tracks = tree_map["O2track"];
+
+        tracks->AddFriend(tree_map["O2trackextra"]);
+        tracks->AddFriend(tree_map["O2trackcov"]);
+        for (const auto&& obj: *tracks->GetListOfFriends()) { cout << "Friend name : " << obj->GetName() << endl; }
         
         // just for grouping of tracks in collisions events
         CollEv coll_list;  // list of index collision groups
@@ -100,7 +96,6 @@ for (auto f: input_file_list) {  // parsing files in list
                     
                 tracks_nr++;
                 pt_sum += o2alice::pt(fSigned1Pt);
-                // std::cout << "fTrackType --> " << track_type << " | fSigned1Pt: " << fSigned1Pt << endl;
                 
                 }  // end of loop over tracks in collision
 
@@ -175,15 +170,14 @@ std::vector<std::string> str_split(const std::string& input, char delimiter) {
 std::vector<std::string> parse_file (std::string file) {
     std::vector<std::string> input_file_list;
     std::fstream infile;
-    infile.open(file,std::ios::in);
+    infile.open(file, std::ios::in);
 
     if (infile.is_open()) {
         infile.seekg(0);
-        string line;
-        while(getline(infile, line)) {
-            char sep = ' ';
-            std::vector<std::string> line_parts = str_split(line, sep);
-            for (auto p: line_parts) { if (p[0] != '#') {input_file_list.push_back(p);} }
+        std::string line;
+        while( std::getline(infile, line) ) {
+            std::string_view line_sv = line;
+            for (const auto& p: ROOT::Split(line_sv, " ", true)) { if (p[0] != '#') { input_file_list.push_back(p);} }
             }
         }
     return input_file_list;
