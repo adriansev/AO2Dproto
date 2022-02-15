@@ -5,6 +5,8 @@
 // found on file: AO2D.root
 //////////////////////////////////////////////////////////
 
+#pragma once
+
 #ifndef O2collision_h
 #define O2collision_h
 

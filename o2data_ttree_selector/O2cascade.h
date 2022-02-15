@@ -5,6 +5,8 @@
 // found on file: AO2D.root
 //////////////////////////////////////////////////////////
 
+#pragma once
+
 #ifndef O2cascade_h
 #define O2cascade_h
 

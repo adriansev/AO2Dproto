@@ -5,6 +5,8 @@
 // found on file: AO2D.root
 //////////////////////////////////////////////////////////
 
+#pragma once
+
 #ifndef O2ft0_h
 #define O2ft0_h
 

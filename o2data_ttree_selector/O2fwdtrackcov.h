@@ -5,6 +5,8 @@
 // found on file: AO2D.root
 //////////////////////////////////////////////////////////
 
+#pragma once
+
 #ifndef O2fwdtrackcov_h
 #define O2fwdtrackcov_h
 
