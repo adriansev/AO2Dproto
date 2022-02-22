@@ -1,11 +1,9 @@
 //////////////////////////////////////////////////////////
 // This class has been automatically generated on
-// Sat Jan 22 15:35:17 2022 by ROOT version 6.25/99
+// Fri Feb 18 23:20:43 2022 by ROOT version 6.25/99
 // from TTree O2fdd/FDD
 // found on file: AO2D.root
 //////////////////////////////////////////////////////////
-
-#pragma once
 
 #ifndef O2fdd_h
 #define O2fdd_h
