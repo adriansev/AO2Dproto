@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+include_list="
+Framework/Core/include/Framework/AnalysisDataModel.h
+Framework/Core/include/Framework/DataTypes.h
+Framework/Core/include/Framework/ASoAHelpers.h
+Framework/Core/include/Framework/ASoA.h
+Common/Types/include/CommonTypes/Units.h
+Common/Constants/include/CommonConstants/MathConstants.h
+Common/Constants/include/CommonConstants/LHCConstants.h
+Common/Constants/include/CommonConstants/Triggers.h
+Common/Constants/include/CommonConstants/GeomConstants.h
+Common/Constants/include/CommonConstants/PhysicsConstants.h
+"
+
+O2_DIR="/home/adrian/GIT-REPOS/ALICE/AliceO2"
+
+for i in ${include_list}; do
+    i_name="$(basename ${i})"
+    [[ -e "${i_name}" ]] && rm -rf "${i_name}"
+    cp -f "${O2_DIR}/${i}" "${i_name}"
+done
+
