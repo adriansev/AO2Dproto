@@ -51,6 +51,7 @@ int ao2d_process (/*int argc, char* argv[]*/) {
 // vector<string> args(argv + 1, argv + argc);    // put all args in a vector // TODO process args
 ROOT::EnableImplicitMT();  // enable multi-threading
 load_selectors();  // load (+compile) the selectors of TTree structures of AO2D format
+gROOT->LoadMacro("alice_DataModel.C+");
 
 std::string input_file = "file_list";
 std::vector<std::string> input_file_list = parse_file(input_file);
@@ -240,14 +241,13 @@ for (auto d: df_locations) {  // parse DFs found in files
 
 
 
-
-
             for (auto entry: ev.second) {  // parse vector of entries
-                o2track.fReader.SetEntry(entry);
-                o2track.fReader.Next();
-                int track_type = static_cast<int>(*o2track.fTrackType);
-                // if not Track or Run2Track then skip
-                if ( !((track_type == o2::aod::track::Track) || (track_type == o2::aod::track::Run2Track)) ) { continue; };
+                if (o2track.fReader.SetEntry(entry) != 0) { continue; } // if set the entry un-succesful then skip
+                o2track.fReader.Next();  // read the entry
+
+                if (!(o2alice::track_is_type(o2track,o2::aod::track::Track) || o2alice::track_is_type(o2track,o2::aod::track::Run2Track))) { continue; };
+                cout << o2alice::track_pt(o2track) << endl;
+
                 // Track filtering
                 // if (!condition) { continue; }
                 // taskD->SetMinPt(minPt);
@@ -301,11 +301,9 @@ for (auto d: df_locations) {  // parse DFs found in files
 
             // SECOND LOOP OVER TRACKS
             for (auto entry: ev.second) {
-                o2track.fReader.SetEntry(entry);
-                o2track.fReader.Next();
-                int track_type = static_cast<int>(*o2track.fTrackType);
-                // if not Track or Run2Track then skip
-                if ( !((track_type == o2::aod::track::Track) || (track_type == o2::aod::track::Run2Track)) ) { continue; };
+                if (o2track.fReader.SetEntry(entry) != 0) { continue;}
+                o2track.fReader.Next();  // set and read the entry
+                if (!(o2alice::track_is_type(o2track,o2::aod::track::Track) || o2alice::track_is_type(o2track,o2::aod::track::Run2Track))) { continue; };
 
 
 //                 if (aodTrk1->Eta() < -fEtaGap && multGapC > 0){
