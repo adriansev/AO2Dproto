@@ -1,6 +1,6 @@
 //////////////////////////////////////////////////////////
 // This class has been automatically generated on
-// Fri Feb 18 23:20:43 2022 by ROOT version 6.25/99
+// Wed Feb 23 17:36:54 2022 by ROOT version 6.25/99
 // from TTree O2run2bcinfo/Run 2 BC Info
 // found on file: AO2D.root
 //////////////////////////////////////////////////////////

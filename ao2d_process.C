@@ -57,6 +57,20 @@ std::string input_file = "file_list";
 std::vector<std::string> input_file_list = parse_file(input_file);
 std::vector< std::pair<std::string,std::string> > df_locations = GetDFlist(input_file);  // collection of <file,DF> pairs
 
+//####################
+// DECLARE CUTS USED TO FILTER COLLISIONS AND TRACKS
+Float_t cut_collision_VtxCut = 10.0;
+
+Float_t cut_track_pt_min = 0.2;
+Float_t cut_track_pt_max = 5.0;
+Float_t cut_track_eta = 0.8;
+Int_t   cut_track_NrClusTPC = 70;
+UInt_t  cut_track_filterbit = 768;
+
+Float_t cut_analysis_EtaGap = 0.5; 
+Float_t NHarm = 2.;
+
+
 //##################
 // DECLARE HISTOGRAMS TO BE FILLED; these should be outside of loops over collisions/tracks
 TH1::AddDirectory(kFALSE); // disable automatic association to gDirectory (latest opened TFile)
@@ -108,17 +122,26 @@ for (auto d: df_locations) {  // parse DFs found in files
         TTreeCol df_trees;
         for (auto t: tree_list){ df_trees[t] = GetTree(tfile, d.second, t); }
 
-        df_trees["O2track"]->AddFriend(df_trees["O2trackextra"]);
-        df_trees["O2track"]->AddFriend(df_trees["O2trackcov"]);
-        //for (const auto&& obj: *df_trees["O2track"]->GetListOfFriends()) { cout << "Friend name : " << obj->GetName() << endl; }
-        
+        // df_trees["O2track"]->AddFriend(df_trees["O2trackextra"]);
+        // df_trees["O2track"]->AddFriend(df_trees["O2trackcov"]);
+        // for (const auto&& obj: *df_trees["O2track"]->GetListOfFriends()) { cout << "Friend name : " << obj->GetName() << endl; }
+ 
         // just for grouping of tracks in collisions events
         CollEv coll_list;  // list of index collision groups
 
-        O2track o2track;
-        o2track.Init(df_trees["O2track"]);
+        // INITIALIZE TTREE READERS
+        O2track o2track; o2track.Init(df_trees["O2track"]);
         df_trees["O2track"]->SetBranchStatus("*",0);
         df_trees["O2track"]->SetBranchStatus("fIndexCollisions",1);
+
+        O2trackextra o2trackextra; o2trackextra.Init(df_trees["O2trackextra"]);
+        O2trackcov o2trackcov;     o2trackcov.Init(df_trees["O2trackcov"]);
+        O2collision o2coll;        o2coll.Init(df_trees["O2collision"]);
+
+        O2run2bcinfo o2run2bc; 
+        bool is_run2bcinfo = (df_trees.find("O2run2bcinfo") == df_trees.end()) ;
+        if (is_run2bcinfo) { o2run2bc.Init(df_trees["O2run2bcinfo"]); }
+
 
         /*
         IMPORTANT DETAIL on collisionIDs !!!!
@@ -152,7 +175,8 @@ for (auto d: df_locations) {  // parse DFs found in files
             // GetPrimaryVertexSPD
             // Compute zvtx and act on it  
             // fVtx->Fill( (zvtx < -990)? 0: 1)
-            // if (abs(zvtx) > fVtxCut) { continue; } // skip this collision if zvtx is over the cut
+
+            // if (abs(zvtx) > cut_collision_VtxCut) { continue; } // skip this collision if zvtx is over the cut
 //             fVtxCuts->Fill(vtxZ);
 
 //             //new vertex selection
@@ -239,89 +263,101 @@ for (auto d: df_locations) {  // parse DFs found in files
             Double_t QxnGapA = 0., QynGapA = 0., QxnGapC = 0., QynGapC = 0.;
             Int_t multGapA = 0, multGapC = 0, multTrk = 0;
 
-
-
             for (auto entry: ev.second) {  // parse vector of entries
                 if (o2track.fReader.SetEntry(entry) != 0) { continue; } // if set the entry un-succesful then skip
                 o2track.fReader.Next();  // read the entry
+                o2trackcov.fReader.Next();
+                o2trackextra.fReader.Next();
 
+                // Track filtering // if (!condition) { continue; }
+
+                // Process only tracks, no tracklets
                 if (!(o2alice::track_is_type(o2track,o2::aod::track::Track) || o2alice::track_is_type(o2track,o2::aod::track::Run2Track))) { continue; };
-                cout << o2alice::track_pt(o2track) << endl;
 
-                // Track filtering
-                // if (!condition) { continue; }
-                // taskD->SetMinPt(minPt);
-                // taskD->SetMaxPt(maxPt);
-                // taskD->SetNoClus(noclus); // No of TPC clusters
-                // taskD->SetEtaCut(etaCut); // Eta cut used to select particles
-                // taskD->SetVtxCut(vtxCut); // Vtx cut on z position in cm
-                // taskD->SetNHarmonic(nHarm); // harmonic number
-                // taskD->SetEtaGap(etaGap); // eta gap for gap 1 -> fEtaGap = 0.5
-              
-                // taskD->SetFilterbit(filterbit); // Not existent???
+                // if (!track.cut_track_filterbit) { continue; }  // TODO search for filterbit
 
-                // fVtxCut(10.0), fEtaCut(0.8), fNoClus(70), fMinPt(0.2),
-                // fMaxPt(5.0), fNHarm(2.), fFilterbit(768), fEtaGap(0.5),
+                auto pt = o2alice::track_pt(o2track);
+                if (pt < cut_track_pt_min || pt > cut_track_pt_max) { continue; }
 
-//         if (aodTrk->TestFilterBit(32)) multTrk++;
-//         if (!(aodTrk->TestFilterBit(fFilterbit))) continue;
-        
-//         if ((TMath::Abs(aodTrk->Eta()) >= fEtaCut) ||
-//             (aodTrk->Pt() < fMinPt) || (aodTrk->Pt() >= fMaxPt) ||
-//             (aodTrk->GetTPCNcls() < fNoClus)) { continue; }
-        
-//         if (aodTrk->Eta() > fEtaGap) {
-//             QxnGapC += TMath::Cos(fNHarm*aodTrk->Phi());
-//             QynGapC += TMath::Sin(fNHarm*aodTrk->Phi());
-//             multGapC++;
-//             }
-        
-//         if (aodTrk->Eta() < -fEtaGap){
-//             QxnGapA += TMath::Cos(fNHarm*aodTrk->Phi());
-//             QynGapA += TMath::Sin(fNHarm*aodTrk->Phi());
-//             multGapA++;
-//             }
+                auto eta = o2alice::track_eta(o2track);
+                if (TMath::Abs(eta) >= cut_track_eta) { continue; }
 
+                int16_t tpcNClsFound = (int16_t)*o2trackextra.fTPCNClsFindable - *o2trackextra.fTPCNClsFindableMinusFound;
+                if (tpcNClsFound < cut_track_NrClusTPC) { continue; }
 
-                }  // end of loop over collision tracks
+                // if (aodTrk->TestFilterBit(32)) multTrk++;
+             
+                auto phi = o2alice::track_phi(o2track);
+                auto cos_nharm = TMath::Cos(NHarm * phi);
+                auto sin_nharm = TMath::Sin(NHarm * phi);
+                if (eta > cut_analysis_EtaGap) {
+                    QxnGapC += cos_nharm;
+                    QynGapC += sin_nharm;
+                    multGapC++;
+                    }
+                if (eta < -cut_analysis_EtaGap) {
+                    QxnGapA += cos_nharm;
+                    QynGapA += sin_nharm;
+                    multGapA++;
+                    }
+
+                }  // end of 1st loop over collision tracks
 
             // Use global/per collision accumulated metrics; Fill histos
+            // fMultvsCent->Fill(v0Centr, multTrk);
 
+            // TODO v0Centr missing
+            // if (multGapA > 0 && multGapC > 0) {
+                // Double_t resGap = (QxnGapA*QxnGapC + QynGapA*QynGapC)/(Double_t)multGapA/(Double_t)multGapC;
+                // fRes->Fill(v0Centr, resGap);
+                // fQxnA->Fill(v0Centr, QxnGapA/(Double_t)multGapA);
+                // fQxnC->Fill(v0Centr, QxnGapC/(Double_t)multGapC);
+                // fQynA->Fill(v0Centr, QynGapA/(Double_t)multGapA);
+                // fQynC->Fill(v0Centr, QynGapC/(Double_t)multGapC);
+                // }
 
-//     fMultvsCent->Fill(v0Centr, multTrk);
-//     
-//     if (multGapA > 0 && multGapC > 0){
-//         Double_t resGap = (QxnGapA*QxnGapC + QynGapA*QynGapC)/(Double_t)multGapA/(Double_t)multGapC;
-//         fRes->Fill(v0Centr, resGap);
-//         fQxnA->Fill(v0Centr, QxnGapA/(Double_t)multGapA);
-//         fQxnC->Fill(v0Centr, QxnGapC/(Double_t)multGapC);
-//         fQynA->Fill(v0Centr, QynGapA/(Double_t)multGapA);
-//         fQynC->Fill(v0Centr, QynGapC/(Double_t)multGapC);
-//         }
 
             // SECOND LOOP OVER TRACKS
-            for (auto entry: ev.second) {
-                if (o2track.fReader.SetEntry(entry) != 0) { continue;}
-                o2track.fReader.Next();  // set and read the entry
+            for (auto entry: ev.second) {  // parse vector of entries
+                if (o2track.fReader.SetEntry(entry) != 0) { continue; } // if set the entry un-succesful then skip
+                o2track.fReader.Next();  // read the entry
+                o2trackcov.fReader.Next();
+                o2trackextra.fReader.Next();
+
+                // Track filtering // if (!condition) { continue; }
+
+                // Process only tracks, no tracklets
                 if (!(o2alice::track_is_type(o2track,o2::aod::track::Track) || o2alice::track_is_type(o2track,o2::aod::track::Run2Track))) { continue; };
 
+                // if (!track.cut_track_filterbit) { continue; }  // TODO search for filterbit
 
-//                 if (aodTrk1->Eta() < -fEtaGap && multGapC > 0){
-//                     Double_t vnA = (TMath::Cos(fNHarm*aodTrk1->Phi())*QxnGapC + TMath::Sin(fNHarm*aodTrk1->Phi())*QynGapC)/(Double_t)multGapC;
-//                     fVnAPt[centrCode]->Fill(aodTrk1->Pt(), vnA);
-//                     fSinnAPt[centrCode]->Fill(aodTrk1->Pt(), TMath::Sin(fNHarm*aodTrk1->Phi()));
-//                     fCosnAPt[centrCode]->Fill(aodTrk1->Pt(), TMath::Cos(fNHarm*aodTrk1->Phi()));
-//                     }
-//                 
-//                 if (aodTrk1->Eta() > fEtaGap && multGapA > 0){
-//                     Double_t vnC = (TMath::Cos(fNHarm*aodTrk1->Phi())*QxnGapA + TMath::Sin(fNHarm*aodTrk1->Phi())*QynGapA)/(Double_t)multGapA;
-//                     fVnCPt[centrCode]->Fill(aodTrk1->Pt(), vnC);
-//                     fSinnCPt[centrCode]->Fill(aodTrk1->Pt(), TMath::Sin(fNHarm*aodTrk1->Phi()));
-//                     fCosnCPt[centrCode]->Fill(aodTrk1->Pt(), TMath::Cos(fNHarm*aodTrk1->Phi()));
-//                     }
+                auto pt = o2alice::track_pt(o2track);
+                if (pt < cut_track_pt_min || pt > cut_track_pt_max) { continue; }
 
-                }  // end of loope over collision tracks
+                auto eta = o2alice::track_eta(o2track);
+                if (TMath::Abs(eta) >= cut_track_eta) { continue; }
 
+                int16_t tpcNClsFound = (int16_t)*o2trackextra.fTPCNClsFindable - *o2trackextra.fTPCNClsFindableMinusFound;
+                if (tpcNClsFound < cut_track_NrClusTPC) { continue; }
+
+                auto phi = o2alice::track_phi(o2track);
+                auto cos_nharm = TMath::Cos(NHarm * phi);
+                auto sin_nharm = TMath::Sin(NHarm * phi);
+
+                // TODO missing centrCode
+                // if ((eta < -cut_analysis_EtaGap) && (multGapC > 0)) {
+                    // Double_t vnA = (cos_nharm * QxnGapC + sin_nharm * QynGapC )/(Double_t)multGapC;
+                    // fVnAPt[centrCode]->Fill(pt, vnA);
+                    // fSinnAPt[centrCode]->Fill(pt, sin_nharm);
+                    // fCosnAPt[centrCode]->Fill(pt, cos_nharm);
+                    // }
+                // if ((eta > cut_analysis_EtaGap) && (multGapA > 0)) {
+                    // Double_t vnC = (cos_nharm * QxnGapA + sin_nharm * QynGapA)/(Double_t)multGapA;
+                    // fVnCPt[centrCode]->Fill(pt, vnC);
+                    // fSinnCPt[centrCode]->Fill(pt, sin_nharm);
+                    // fCosnCPt[centrCode]->Fill(pt, cos_nharm);
+                    // }
+                }  // end of 2nd loop over collision tracks
 
             }  // end of loop over collisions
 
