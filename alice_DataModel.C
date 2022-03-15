@@ -36,13 +36,13 @@ std::tuple<Float_t, Float_t> sincos(Float_t alpha) {
     return std::make_tuple(Sin(norm_alpha), Cos(norm_alpha));
     }
 
-ROOT::Math::XYZTVectorF track_xyz(Float_t x, Float_t y, Float_t z) {
+ROOT::Math::XYZTVectorF get_track_xyz(Float_t x, Float_t y, Float_t z) {
     return ROOT::Math::XYZTVectorF(x, y, z, 0.);
     }
 
-ROOT::Math::PtEtaPhiMVector track(O2track& trk) { return ROOT::Math::PtEtaPhiMVector(track_pt(trk), track_eta(trk), track_phi(trk), 0.); }
+ROOT::Math::PtEtaPhiMVector get_track(O2track& trk) { return ROOT::Math::PtEtaPhiMVector(track_pt(trk), track_eta(trk), track_phi(trk), 0.); }
 
-ROOT::Math::PxPyPzMVector track_pxpypz(O2track& trk) {
+ROOT::Math::PxPyPzMVector get_track_pxpypz(O2track& trk) {
     Float_t sn, cs;
     std::tie(sn, cs) = sincos(*trk.fAlpha);
     Float_t pt = track_pt(trk);
@@ -54,11 +54,59 @@ ROOT::Math::PxPyPzMVector track_pxpypz(O2track& trk) {
     return ROOT::Math::PxPyPzMVector(px, py, pz, 0.);
     }
 
-Float_t track_P (O2track& trk) {
+Float_t get_track_P (O2track& trk) {
     return 0.5 * (Tan(PiOver4() - 0.5 * ATan(*trk.fTgl)) + 1./Tan(PiOver4() - 0.5 * ATan(*trk.fTgl))) / Abs(*trk.fSigned1Pt) ;
     }
 
 bool track_is_type (O2track& trk, o2::aod::track::TrackTypeEnum type) { return (static_cast<int>(*trk.fTrackType) == type); }
+bool is_track (O2track& trk) { return (o2alice::track_is_type(trk,o2::aod::track::Track) || o2alice::track_is_type(trk,o2::aod::track::Run2Track)) ; }
+bool is_run2  (O2track& trk) { return (o2alice::track_is_type(trk,o2::aod::track::Run2Track) || o2alice::track_is_type(trk,o2::aod::track::Run2Tracklet)) ; }
+
+
+// Default track selection requiring one hit in the SPD
+TrackSelection getGlobalTrackSelection() {
+    TrackSelection selectedTracks;
+    selectedTracks.SetTrackType(o2::aod::track::Run2Track);
+    selectedTracks.SetPtRange(0.1f, 1e10f);
+    selectedTracks.SetEtaRange(-0.8f, 0.8f);
+    selectedTracks.SetRequireITSRefit(true);
+    selectedTracks.SetRequireTPCRefit(true);
+    selectedTracks.SetRequireGoldenChi2(true);
+    selectedTracks.SetMinNCrossedRowsTPC(70);
+    selectedTracks.SetMinNCrossedRowsOverFindableClustersTPC(0.8f);
+    selectedTracks.SetMaxChi2PerClusterTPC(4.f);
+    selectedTracks.SetRequireHitsInITSLayers(1, {0, 1}); // one hit in any SPD layer
+    selectedTracks.SetMaxChi2PerClusterITS(36.f);
+    selectedTracks.SetMaxDcaXYPtDep([](float pt) { return 0.0105f + 0.0350f / pow(pt, 1.1f); });
+    selectedTracks.SetMaxDcaZ(2.f);
+    return selectedTracks;
+    }
+
+// Default track selection requiring no hit in the SPD and one in the innermost
+// SDD -> complementary tracks to global selection
+TrackSelection getGlobalTrackSelectionSDD() {
+    TrackSelection selectedTracks = getGlobalTrackSelection();
+    selectedTracks.ResetITSRequirements();
+    selectedTracks.SetRequireNoHitsInITSLayers({0, 1}); // no hit in SPD layers
+    selectedTracks.SetRequireHitsInITSLayers(1, {2});   // one hit in first SDD layer
+    return selectedTracks;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }
 

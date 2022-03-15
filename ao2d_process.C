@@ -327,7 +327,7 @@ for (auto d: df_locations) {  // parse DFs found in files
                 // Track filtering // if (!condition) { continue; }
 
                 // Process only tracks, no tracklets
-                if (!(o2alice::track_is_type(o2track,o2::aod::track::Track) || o2alice::track_is_type(o2track,o2::aod::track::Run2Track))) { continue; };
+                if (!o2alice::is_track(o2track)) { continue; };
 
                 // if (!track.cut_track_filterbit) { continue; }  // TODO search for filterbit
 
